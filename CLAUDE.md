@@ -76,20 +76,51 @@ API-SPEC.md의 **비고(서버 side effect)** 를 빠뜨리지 말 것. 예:
 ### 6. 패키지 구조 (도메인 기반)
 ```
 com.den.pulse
-├── core/          공통 (예외, 응답, 설정, 유틸)
+├── core/            기술 기반 (예외, 응답, 설정, 유틸)
 │   ├── config/      Security, WebSocket, Jpa, Redis 설정
 │   ├── exception/   전역 예외 처리 (@RestControllerAdvice)
 │   └── security/    JWT 발급·검증, 인증 필터, 현재 사용자 조회
-├── domain/
-│   ├── auth/            로그인·토큰 재발급·내 정보
-│   ├── user/            사용자
-│   ├── project/         프로젝트, 폴더, 즐겨찾기, 배치
-│   ├── member/          프로젝트 멤버, 역할, 메뉴 권한
-│   ├── task/            업무, 담당자, 의존성, 하위업무, 태그, 댓글
-│   ├── channel/         채널, 메시지, 읽음 처리
-│   └── notification/    알림
+└── domain/          업무 영역
+    ├── auth/            로그인·토큰 재발급·내 정보
+    ├── user/            사용자
+    ├── project/         프로젝트, 폴더, 즐겨찾기, 배치
+    ├── member/          프로젝트 멤버, 역할, 메뉴 권한
+    ├── task/            업무, 담당자, 의존성, 하위업무, 태그, 댓글
+    ├── channel/         채널, 메시지, 읽음 처리
+    └── notification/    알림
 ```
 각 도메인 아래는 `controller / service / repository / entity / dto` 로 나눈다.
+
+### 7. JPA 사용 규칙 (중요 — 반드시 준수)
+
+**7-1. INSERT/UPDATE 판단은 코드가 한다. `save()`에 맡기지 않는다.**
+`save()`는 내부적으로 SELECT를 날려 존재 여부를 확인한 뒤 INSERT/UPDATE를 결정한다.
+이 방식은 불필요한 SELECT를 남발하고, 어떤 쿼리가 나가는지 코드에서 안 보인다.
+- 생성이 확실한 경우 → `EntityManager.persist()` 또는 그에 준하는 명시적 생성
+- 수정인 경우 → **먼저 조회**하고, 그 엔티티를 수정
+- 멱등성이 필요한 경우 → **코드가 직접 조회하고 분기**한다. JPA에 판단을 위임하지 않는다.
+
+**7-2. `@DynamicUpdate` 사용 금지.**
+변경 필드를 런타임에 비교해 UPDATE 문을 동적 생성하는 방식은 쓰지 않는다.
+항상 동일한 UPDATE 문이 나가야 예측 가능하다.
+
+**7-3. 부분 수정(PATCH)은 "조회 → 필요한 필드만 세팅 → 전체 UPDATE".**
+```java
+// 올바름
+Task task = taskRepository.findById(taskId).orElseThrow(...);  // 권한 체크에도 필요한 조회
+if (request.hasTitle())    task.setTitle(request.getTitle());
+if (request.hasPriority()) task.setPriority(request.getPriority());
+// ... 요청에 들어온 필드만 세팅 → 전체 컬럼 UPDATE
+```
+- `COALESCE(:v, column)` 식의 "null이면 기존값 유지" 쿼리는 쓰지 않는다.
+  **값을 의도적으로 null로 지우는 경우를 표현할 수 없기 때문**이다.
+- 요청 DTO는 "필드가 왔는지"와 "값이 null인지"를 구분할 수 있어야 한다
+  (Optional 래핑, 별도 플래그 등 — 구현 방식은 사용자와 합의).
+
+**7-4. 조회는 필요한 만큼만.**
+- 권한 체크로 이미 조회한 엔티티가 있으면 재조회하지 않는다.
+- 연관관계는 기본 `LAZY`. 필요한 곳에서 fetch join으로 명시적으로 가져온다.
+- N+1이 발생할 지점은 미리 짚고 fetch join 또는 배치 조회로 해결한다.
 
 ---
 
@@ -97,6 +128,10 @@ com.den.pulse
 
 1. **공통 토대** — 설정(application.yml, DB/Redis 연결), 전역 예외 처리, 공통 응답 규약
 2. **엔티티 전체** — `docs/DEN-DESIGN.md` 4.1절 테이블 전부. 관계가 얽혀 있으므로 한 번에.
+   - DB는 로컬 Docker PostgreSQL 사용
+   - 스키마는 **`spring.jpa.hibernate.ddl-auto: update`로 자동 생성**한다 (개발 단계)
+   - 엔티티 구조가 안정되면 Flyway 마이그레이션으로 전환 예정 (그때 사용자와 합의)
+   - **운영 환경에서는 `ddl-auto`를 절대 `update`/`create`로 두지 않는다**
 3. **인증** — JWT 발급·검증, Security 설정, `/api/auth/*`
 4. **프로젝트·폴더·즐겨찾기** — `/api/projects`, `/api/folders`, 배치·즐겨찾기
 5. **멤버·역할·권한** — 멤버 CRUD, 역할, 메뉴 권한. **권한 체크 공통 로직도 여기서 확립**
@@ -118,6 +153,9 @@ com.den.pulse
 - ❌ Spring Boot 3.x 문법·설정 그대로 가져오기 (4.x 기준으로 작성)
 - ❌ API-SPEC.md 계약을 임의로 변경 (바꿔야 하면 먼저 사용자와 합의)
 - ❌ 프론트 검증을 믿고 백엔드 검증 생략
+- ❌ **`save()`로 INSERT/UPDATE 판단 위임** (7-1)
+- ❌ **`@DynamicUpdate` 사용** (7-2)
+- ❌ **`COALESCE(:v, column)` 식 부분 업데이트 쿼리** (7-3)
 - ❌ 권한 체크를 컨트롤러마다 중복 구현 (공통화할 것)
 - ❌ 엔티티를 그대로 응답으로 반환 (반드시 DTO 변환)
 - ❌ URL에 프로젝트 UUID 노출
