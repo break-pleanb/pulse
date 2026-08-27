@@ -1,0 +1,4 @@
+spring:
+  datasource:
+    username: pulse_user
+    password: CHANGE_ME

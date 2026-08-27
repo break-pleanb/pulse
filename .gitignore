@@ -35,3 +35,7 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### 로컬 시크릿 (계정/비밀번호 등) ###
+application-local.yaml
+application-local.yml
