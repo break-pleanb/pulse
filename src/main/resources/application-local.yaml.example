@@ -1,6 +1,7 @@
 spring:
   datasource:
     username: pulse_user
+    # db/init.sql의 로컬 개발 기본값과 동일. 개인적으로 바꿨다면 여기도 맞출 것.
     password: CHANGE_ME
 
 pulse:
