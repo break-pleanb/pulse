@@ -1,0 +1,13 @@
+${AnsiColor.CYAN}
+       _/\_
+------/    \/\---------
+${AnsiColor.BRIGHT_GREEN}
+ ____  _   _ _     ____  _____
+|  _ \| | | | |   / ___|| ____|
+| |_) | | | | |   \___ \|  _|
+|  __/| |_| | |___ ___) | |___
+|_|    \___/|_____|____/|_____|
+
+${AnsiColor.DEFAULT}
+:: The Heartbeat of [den] ::
+:: ${spring-boot.formatted-version} ::
