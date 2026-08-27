@@ -2,3 +2,8 @@ spring:
   datasource:
     username: pulse_user
     password: CHANGE_ME
+
+pulse:
+  jwt:
+    # HS256 서명 키 — 32바이트(256비트) 이상 필요. 예: openssl rand -base64 48
+    secret: CHANGE_ME_32_BYTES_MINIMUM

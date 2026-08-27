@@ -30,6 +30,12 @@ spring:
         write-dates-as-timestamps: false
     time-zone: Asia/Seoul
 
+pulse:
+  jwt:
+    # secret은 application-local.yaml(gitignore 대상)에서 주입 — 커밋 금지
+    access-token-validity-seconds: 1800       # 30분
+    refresh-token-validity-seconds: 1209600   # 14일, 로테이션 없음 (API-SPEC.md 1장)
+
 server:
   port: 8080
 
