@@ -22,6 +22,8 @@ import com.den.pulse.domain.project.entity.Project;
 import com.den.pulse.domain.user.entity.User;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +47,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class ChannelCommandService {
 
+    private static final Logger log = LoggerFactory.getLogger(ChannelCommandService.class);
     private static final String CHANNEL_NOT_FOUND_MESSAGE = "채널을 찾을 수 없습니다.";
 
     private final EntityManager entityManager;
@@ -136,15 +139,26 @@ public class ChannelCommandService {
         member.setLastReadAt(LocalDateTime.now());
     }
 
-    /** 지금 그 채널을 구독 중(=보고 있는)인 멤버는 제외하고 channel_message 알림을 만든다 (API-SPEC.md 6장 비고). */
+    /**
+     * 지금 그 채널을 구독 중(=보고 있는)인 멤버는 제외하고 channel_message 알림을 만든다 (API-SPEC.md 6장 비고).
+     * 메시지 발송 자체는 이미 끝난 부수효과이므로, 멤버 한 명의 프레즌스 조회·알림 생성이 실패해도
+     * (예: Redis 장애) 메시지 발송 트랜잭션 전체를 실패시키거나 다른 멤버에 대한 알림까지 막지 않는다.
+     */
     private void notifyAbsentMembers(Channel channel, UUID authorId) {
         for (UUID memberId : channelMemberRepository.findUserIdsByChannel_Id(channel.getId())) {
-            if (memberId.equals(authorId) || channelPresenceService.isPresent(channel.getId(), memberId)) {
+            if (memberId.equals(authorId)) {
                 continue;
             }
-            User recipient = entityManager.getReference(User.class, memberId);
-            notificationService.notify(recipient, NotificationType.CHANNEL_MESSAGE,
-                    "새 메시지가 도착했습니다", channel.getName(), channel.getProject(), null, channel);
+            try {
+                if (channelPresenceService.isPresent(channel.getId(), memberId)) {
+                    continue;
+                }
+                User recipient = entityManager.getReference(User.class, memberId);
+                notificationService.notify(recipient, NotificationType.CHANNEL_MESSAGE,
+                        "새 메시지가 도착했습니다", channel.getName(), channel.getProject(), null, channel);
+            } catch (RuntimeException e) {
+                log.warn("channel_message 알림 생성 실패 (channelId={}, memberId={})", channel.getId(), memberId, e);
+            }
         }
     }
 
