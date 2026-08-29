@@ -28,4 +28,6 @@ public interface ChannelRepository extends JpaRepository<Channel, UUID> {
             """)
     Optional<Channel> findDmChannel(@Param("projectId") UUID projectId, @Param("type") ChannelType type,
                                      @Param("userId") UUID userId, @Param("targetUserId") UUID targetUserId);
+
+    List<Channel> findByProject_IdAndType(UUID projectId, ChannelType type);
 }

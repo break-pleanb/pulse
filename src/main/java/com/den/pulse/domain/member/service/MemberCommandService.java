@@ -2,6 +2,10 @@ package com.den.pulse.domain.member.service;
 
 import com.den.pulse.core.exception.ConflictException;
 import com.den.pulse.core.exception.NotFoundException;
+import com.den.pulse.domain.channel.entity.Channel;
+import com.den.pulse.domain.channel.entity.ChannelMember;
+import com.den.pulse.domain.channel.entity.ChannelType;
+import com.den.pulse.domain.channel.repository.ChannelRepository;
 import com.den.pulse.domain.member.dto.InviteMemberRequest;
 import com.den.pulse.domain.member.dto.ProjectMemberResponse;
 import com.den.pulse.domain.member.dto.UpdateMemberRoleRequest;
@@ -47,6 +51,7 @@ public class MemberCommandService {
     private final RoleMenuPermissionRepository roleMenuPermissionRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final ChannelRepository channelRepository;
 
     @Transactional
     public ProjectMemberResponse inviteMember(UUID requesterId, String projectKey, InviteMemberRequest request) {
@@ -64,6 +69,10 @@ public class MemberCommandService {
 
         ProjectMember member = new ProjectMember(project, user, role, LocalDate.now());
         entityManager.persist(member);
+
+        for (Channel channel : channelRepository.findByProject_IdAndType(project.getId(), ChannelType.GROUP)) {
+            entityManager.persist(new ChannelMember(channel, user));
+        }
 
         notificationService.notify(user, NotificationType.PROJECT_INVITED,
                 "프로젝트에 초대되었습니다", project.getName(), project, null, null);

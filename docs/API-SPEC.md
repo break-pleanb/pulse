@@ -226,6 +226,8 @@ Record<'tasks' | 'gantt' | 'messenger', boolean>
 
 > **목업과의 차이**: 목업 함수 `inviteProjectMember(projectKey, name, email, roleId)`는 이름·이메일을 입력받아 그 자리에서 신규 `User`를 만드는 것처럼 동작한다 → 10장 참고.
 
+> **비고 (서버 side effect, 2026-08-29 확정)**: 초대된 사용자를 그 프로젝트의 **그룹 채널(`type=group`) 전체**에 `CHANNEL_MEMBER`로 함께 추가한다. DM 채널(`type=dm`)은 대상에서 제외 — 원래 참여자 두 명만의 채널이므로 새 멤버를 끼워 넣지 않는다. 이 처리가 없으면 새 멤버는 기존 그룹 채널을 아예 볼 수 없다(메신저 화면에 "채널이 없습니다").
+
 ### `PATCH /api/projects/{projectKey}/members/{userId}`
 목업 함수: `updateProjectMemberRole(projectKey, userId, roleId): Promise<void>`
 
