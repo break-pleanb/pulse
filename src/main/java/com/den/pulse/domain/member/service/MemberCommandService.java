@@ -12,6 +12,8 @@ import com.den.pulse.domain.member.entity.RoleMenuPermission;
 import com.den.pulse.domain.member.repository.ProjectMemberRepository;
 import com.den.pulse.domain.member.repository.ProjectRoleRepository;
 import com.den.pulse.domain.member.repository.RoleMenuPermissionRepository;
+import com.den.pulse.domain.notification.entity.NotificationType;
+import com.den.pulse.domain.notification.service.NotificationService;
 import com.den.pulse.domain.project.entity.Project;
 import com.den.pulse.domain.user.entity.User;
 import com.den.pulse.domain.user.repository.UserRepository;
@@ -44,6 +46,7 @@ public class MemberCommandService {
     private final ProjectRoleRepository projectRoleRepository;
     private final RoleMenuPermissionRepository roleMenuPermissionRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public ProjectMemberResponse inviteMember(UUID requesterId, String projectKey, InviteMemberRequest request) {
@@ -61,6 +64,10 @@ public class MemberCommandService {
 
         ProjectMember member = new ProjectMember(project, user, role, LocalDate.now());
         entityManager.persist(member);
+
+        notificationService.notify(user, NotificationType.PROJECT_INVITED,
+                "프로젝트에 초대되었습니다", project.getName(), project, null, null);
+
         return ProjectMemberResponse.from(member);
     }
 

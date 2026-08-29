@@ -492,6 +492,11 @@ type TaskPatch = Partial<
 | `channel_message` | 채널 메시지 발송 시, 그 채널을 보고 있지 않은 멤버에게 |
 | `project_invited` | `POST /projects/{projectKey}/members`로 초대됐을 때 |
 
+> `task_due_soon`은 주기가 스펙에 없어 2026-08-29 사용자와 합의: 매일 09:00 1회(`TaskDueSoonScheduler`) 스캔하고,
+> 같은 업무·수신자 조합은 당일 이미 알림이 있으면 다시 만들지 않는다.
+> `channel_message`는 채널 메시지 발송 엔드포인트(6장, 8단계 구현 예정)에 딸린 부수효과라 7단계(댓글·알림)에서는
+> 아직 구현하지 않았다 — 8단계에서 메시지 발송 API와 함께 구현한다.
+
 ---
 
 ## 8. WebSocket (STOMP) — 참고

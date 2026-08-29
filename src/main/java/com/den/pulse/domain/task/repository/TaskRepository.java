@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -16,6 +17,13 @@ public interface TaskRepository extends JpaRepository<Task, UUID>, JpaSpecificat
 
     @Query("select t.code from Task t where t.project.id = :projectId")
     List<String> findCodesByProject_Id(@Param("projectId") UUID projectId);
+
+    @Query("""
+            select t from Task t
+            where t.endDate between :today and :tomorrow
+              and t.status <> com.den.pulse.domain.task.entity.TaskStatus.DONE
+            """)
+    List<Task> findDueSoon(@Param("today") LocalDate today, @Param("tomorrow") LocalDate tomorrow);
 
     @Query("""
             select t.project.id as projectId, t.status as status, count(t) as cnt
