@@ -1,8 +1,10 @@
 package com.den.pulse.domain.task.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public enum TaskStatus {
-    TODO,
-    PROGRESS,
-    REVIEW,
-    DONE
+    @JsonProperty("todo") TODO,
+    @JsonProperty("progress") PROGRESS,
+    @JsonProperty("review") REVIEW,
+    @JsonProperty("done") DONE
 }

@@ -288,6 +288,26 @@ Record<'tasks' | 'gantt' | 'messenger', boolean>
 > **목업 단계와의 차이**: 목업 함수(`fetchTasksByProjectKey`)는 프로젝트의 전체 업무 배열을 반환하고, 필터·검색·페이지네이션은 `TaskListPage.vue`가 `route.query`를 읽어 **클라이언트에서** 처리한다 → 10장 참고.
 > `group`(그룹핑)·`view`(리스트/간트)는 응답에 포함될 데이터 자체를 바꾸지 않는 화면 전용 상태이므로 쿼리 파라미터로 보내지 않는다 — URL에는 남지만(URL 우선 원칙) 서버 계약과는 무관하다.
 
+### `POST /api/projects/{projectKey}/tasks`
+목업 함수 대응 없음 (2026-08-29, 백엔드 구현 중 추가 — 기존엔 `POST /tasks/{parentId}/subtasks`로 하위업무만 만들 수 있고 최상위 업무를 만드는 방법이 없었다). 최상위 업무 생성용.
+
+**Request**
+```ts
+{
+  title: string             // 필수
+  status?: TaskStatus       // 기본값 'todo'
+  priority?: TaskPriority   // 기본값 'medium'
+  startDate?: string        // 기본값: endDate가 있으면 그 값, 없으면 오늘
+  endDate?: string          // 기본값: startDate와 동일
+  assigneeIds?: string[]    // 기본값 []. 프로젝트 멤버가 아닌 userId가 섞이면 400
+  tagIds?: string[]         // 기본값 []. 프로젝트에 속하지 않은 tagId가 섞이면 400
+  isPrivate?: boolean       // 기본값 false
+}
+```
+**Response** `201` → [`Task`](#task)
+
+**비고**: `progress`는 항상 `0`으로 시작한다(요청으로 지정 불가). `code`는 서버가 프로젝트 접두어(`projectKey`)에 그 프로젝트 내 최대 순번 + 1을 붙여 자동 발급한다 (하위업무 생성과 동일 규칙, 아래 참고). `assigneeIds`를 지정하면 각 대상에게 `task_assigned` 알림이 생성된다 (7장 트리거와 동일).
+
 ### `GET /api/me/project-stats`
 목업 함수 대응 없음 (목업의 `fetchAllTasks(): Promise<Task[]>`을 대체하는 집계 엔드포인트).
 전체 프로젝트 홈의 카드별 진행 현황 계산용 — 요청자가 접근 가능한 **모든 프로젝트**의 업무를 프로젝트별로 집계해 반환한다. `/me` 네임스페이스를 쓰는 이유: `/api/projects/{projectKey}` 단건 조회 경로와 겹치지 않도록, 그리고 "요청자 기준" 집계임을 경로에서 드러내기 위해.
@@ -298,6 +318,8 @@ Record<'tasks' | 'gantt' | 'messenger', boolean>
 ```
 
 > 목업 함수는 전체 프로젝트의 업무 원본을 통째로 내려받아 프론트에서 `statsOf(project)`로 집계한다. 프로젝트가 50~100개 규모면 매 홈 화면 진입마다 불필요하게 큰 페이로드를 전송하게 되므로 집계된 숫자만 반환하는 이 엔드포인트로 대체한다 → 10장 참고. 업무 원문이 필요한 화면(업무 리스트·상세)은 위 `GET /api/projects/{projectKey}/tasks`, `GET /api/tasks/{taskId}`로 별도 조회한다.
+
+> **권한 (2026-08-29 확정)**: 이 엔드포인트는 tasks 메뉴 권한으로 게이팅하지 않는다 — 전체 프로젝트 홈 카드는 "업무" 화면 진입권과 무관하게 보여야 하기 때문. 프로젝트 멤버십(0.4절)만 확인하고, isPrivate 업무는 여전히 집계에서 제외한다(담당자·참여자 제외).
 
 ### `GET /api/me/task-count`
 목업 함수: `fetchMyTaskCount(): Promise<number>`
@@ -658,3 +680,4 @@ interface AppNotification {
 | 멘션·담당자 선택 | `fetchUsers()`로 **전체 사용자** 목록을 받아 멘션·담당자 후보로 그대로 사용 | 프로젝트 멤버로 범위가 좁아진 `GET /api/projects/{projectKey}/users`로 교체 | 3장 `GET /api/projects/{projectKey}/users` | 담당자 피커, 댓글·메시지 멘션 입력 컴포넌트 |
 | 전체 프로젝트 홈 통계 | `fetchAllTasks()`로 **전체 프로젝트의 업무 원본**을 받아 카드별로 `statsOf()` 클라이언트 집계 | 집계된 숫자만 받는 `GET /api/me/project-stats`로 교체 — 클라이언트 집계 로직 제거 | 4장 `GET /api/me/project-stats` | `ProjectsHomePage.vue`의 `fetchAllTasks`/`statsOf()` |
 | 메신저 메시지 | 채널의 **전체 메시지**를 한 번에 로드 | `?before=&limit=` 커서 기반 페이지네이션 + 무한 스크롤로 변경 (추후 — 메시지 양이 실제로 문제될 때 진행) | 6장 `GET /channels/{channelId}/messages` | `MessengerPage.vue`, `ChatPanel.vue` |
+| 최상위 업무 생성 | 목업에는 대응 함수 자체가 없음 — 목업 데이터가 이미 시드된 상태로 시작해서 "업무 생성" 화면/버튼이 없었다 | `POST /api/projects/{projectKey}/tasks` 신설 (2026-08-29). **프론트도 목업에 없던 이 API를 호출하도록 새로 추가해야 한다** — 업무 생성 UI(버튼·폼)가 아직 없다면 이 화면부터 만들어야 함 | 4장 `POST /api/projects/{projectKey}/tasks` | (신규) 업무 목록/보드 화면에 업무 생성 진입점 추가 필요 |
