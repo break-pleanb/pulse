@@ -10,5 +10,6 @@ public enum ActivityField {
     @JsonProperty("endDate") END_DATE,
     @JsonProperty("progress") PROGRESS,
     @JsonProperty("assignees") ASSIGNEES,
-    @JsonProperty("isPrivate") IS_PRIVATE
+    @JsonProperty("isPrivate") IS_PRIVATE,
+    @JsonProperty("dependencies") DEPENDENCIES
 }

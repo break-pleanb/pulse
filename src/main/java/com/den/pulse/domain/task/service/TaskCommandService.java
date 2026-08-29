@@ -251,6 +251,10 @@ public class TaskCommandService {
         }
         validateNoCycle(task.getProject().getId(), taskId, depIds);
 
+        String oldValue = joinCodes(taskDependencyRepository.findDependsOnCodesByTask_Id(taskId));
+        String newValue = joinCodes(depTasks.stream().map(Task::getCode).toList());
+        taskActivityService.record(task, ActivityField.DEPENDENCIES, oldValue, newValue, userId);
+
         taskDependencyRepository.deleteByTask_Id(taskId);
         entityManager.flush();
         for (Task dependsOn : depTasks) {
@@ -274,6 +278,10 @@ public class TaskCommandService {
 
     private String joinIds(Set<UUID> ids) {
         return ids.stream().map(UUID::toString).sorted().collect(Collectors.joining(","));
+    }
+
+    private String joinCodes(List<String> codes) {
+        return codes.stream().sorted().collect(Collectors.joining(", "));
     }
 
     private void validateProjectMembers(UUID projectId, Set<UUID> userIds) {

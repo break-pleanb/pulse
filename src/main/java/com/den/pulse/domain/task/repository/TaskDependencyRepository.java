@@ -13,6 +13,10 @@ public interface TaskDependencyRepository extends JpaRepository<TaskDependency, 
 
     void deleteByTask_Id(UUID taskId);
 
+    /** 업무 활동 이력(dependencies)의 oldValue 기록용 — 변경 전 선행 업무 code 목록. */
+    @Query("select d.dependsOn.code from TaskDependency d where d.task.id = :taskId")
+    List<String> findDependsOnCodesByTask_Id(@Param("taskId") UUID taskId);
+
     @Query("select d.task.id as taskId, d.dependsOn.id as dependsOnId from TaskDependency d where d.task.id in :taskIds")
     List<TaskDependencyIdView> findByTaskIdIn(@Param("taskIds") Collection<UUID> taskIds);
 

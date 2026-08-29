@@ -415,7 +415,7 @@ type TaskPatch = Partial<
 
 **Response** `200` → [`TaskActivity`](#taskactivity)`[]` / `404`
 
-**비고**: `PATCH /tasks/{taskId}`, `PATCH /tasks/{taskId}/status`, `PATCH /tasks/{taskId}/assignees` 세 엔드포인트가 아래 필드를 바꿀 때마다 한 줄씩 이력을 남긴다. **값이 실제로 바뀐 경우에만** 기록한다(같은 값으로 재요청하면 이력 없음).
+**비고**: `PATCH /tasks/{taskId}`, `PATCH /tasks/{taskId}/status`, `PATCH /tasks/{taskId}/assignees`, `PATCH /tasks/{taskId}/dependencies` 네 엔드포인트가 아래 필드를 바꿀 때마다 한 줄씩 이력을 남긴다. **값이 실제로 바뀐 경우에만** 기록한다(같은 값으로 재요청하면 이력 없음). 하위 업무(subtask) 추가/삭제는 이력에 남기지 않는다 — 자식 업무 자체의 `createdAt`/`deletedAt`으로 이미 추적되므로 중복이기 때문.
 
 | `field` | 대상 엔드포인트 | `oldValue`/`newValue` 형식 |
 |---|---|---|
@@ -427,6 +427,7 @@ type TaskPatch = Partial<
 | `progress` | `PATCH /tasks/{id}`, `PATCH /tasks/{id}/status`(`status`를 `done`으로 바꿔 `progress`가 자동으로 100이 될 때도 포함) | 숫자를 문자열로 |
 | `assignees` | `PATCH /tasks/{id}/assignees` | 콤마로 이은 `userId` 목록 (정렬됨, 빈 값이면 `""`) |
 | `isPrivate` | `PATCH /tasks/{id}` | `"true"` / `"false"` |
+| `dependencies` | `PATCH /tasks/{id}/dependencies` | `", "`로 이은 선행 업무 `code` 목록, 코드 문자열 기준 정렬 (예: `"APP-142, APP-138"` → `"APP-142"`, 빈 값이면 `""`) |
 
 ---
 
