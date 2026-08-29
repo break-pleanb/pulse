@@ -1,6 +1,7 @@
 package com.den.pulse.domain.channel.entity;
 
 import com.den.pulse.core.entity.BaseEntity;
+import com.den.pulse.core.jpa.ChannelTypeJavaType;
 import com.den.pulse.domain.project.entity.Project;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,6 +14,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JavaType;
 
 @Entity
 @Table(name = "channel")
@@ -28,6 +30,7 @@ public class Channel extends BaseEntity {
     private String name;
 
     @Enumerated(EnumType.STRING)
+    @JavaType(ChannelTypeJavaType.class)
     @Column(nullable = false)
     private ChannelType type;
 

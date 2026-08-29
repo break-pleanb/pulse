@@ -1,6 +1,7 @@
 package com.den.pulse.domain.notification.entity;
 
 import com.den.pulse.core.entity.BaseEntity;
+import com.den.pulse.core.jpa.NotificationTypeJavaType;
 import com.den.pulse.domain.channel.entity.Channel;
 import com.den.pulse.domain.project.entity.Project;
 import com.den.pulse.domain.task.entity.Task;
@@ -17,6 +18,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JavaType;
 
 /**
  * project/linkTask/linkChannel은 알림 유형에 따라 일부만 채워진다 (API-SPEC.md 9장 AppNotification 참고).
@@ -32,6 +34,7 @@ public class Notification extends BaseEntity {
     private User user;
 
     @Enumerated(EnumType.STRING)
+    @JavaType(NotificationTypeJavaType.class)
     @Column(nullable = false)
     private NotificationType type;
 

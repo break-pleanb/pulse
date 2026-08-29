@@ -1,6 +1,7 @@
 package com.den.pulse.domain.task.entity;
 
 import com.den.pulse.core.entity.BaseEntity;
+import com.den.pulse.core.jpa.ActivityFieldJavaType;
 import com.den.pulse.domain.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,6 +14,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JavaType;
 
 /**
  * 업무 필드 변경 이력 (API-SPEC.md 5장). oldValue/newValue는 필드 타입에 관계없이 문자열로 직렬화해
@@ -29,6 +31,7 @@ public class TaskActivity extends BaseEntity {
     private Task task;
 
     @Enumerated(EnumType.STRING)
+    @JavaType(ActivityFieldJavaType.class)
     @Column(nullable = false)
     private ActivityField field;
 

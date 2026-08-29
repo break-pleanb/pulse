@@ -1,6 +1,7 @@
 package com.den.pulse.domain.member.entity;
 
 import com.den.pulse.core.entity.BaseEntity;
+import com.den.pulse.core.jpa.MenuKeyJavaType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,6 +15,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JavaType;
 
 @Entity
 @Table(
@@ -29,6 +31,7 @@ public class RoleMenuPermission extends BaseEntity {
     private ProjectRole role;
 
     @Enumerated(EnumType.STRING)
+    @JavaType(MenuKeyJavaType.class)
     @Column(name = "menu_key", nullable = false)
     private MenuKey menuKey;
 

@@ -1,6 +1,8 @@
 package com.den.pulse.domain.task.entity;
 
 import com.den.pulse.core.entity.BaseEntity;
+import com.den.pulse.core.jpa.TaskPriorityJavaType;
+import com.den.pulse.core.jpa.TaskStatusJavaType;
 import com.den.pulse.domain.project.entity.Project;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,6 +16,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JavaType;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
@@ -44,11 +47,13 @@ public class Task extends BaseEntity {
 
     @Setter
     @Enumerated(EnumType.STRING)
+    @JavaType(TaskStatusJavaType.class)
     @Column(nullable = false)
     private TaskStatus status;
 
     @Setter
     @Enumerated(EnumType.STRING)
+    @JavaType(TaskPriorityJavaType.class)
     @Column(nullable = false)
     private TaskPriority priority;
 

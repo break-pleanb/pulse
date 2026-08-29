@@ -15,6 +15,13 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        # Hibernate 6+ 기본값(SqlTypes.ENUM)은 @Enumerated(STRING) 컬럼에 "값 목록 CHECK 제약"을 자동
+        # 생성한다. ddl-auto:update는 이 제약을 enum이 바뀌어도 갱신하지 않아, enum에 값을 추가할 때마다
+        # "violates check constraint ..._check" 에러가 재발한다. VARCHAR로 강제해 이 자동 생성 자체를 끈다
+        # (모든 @Enumerated(STRING) 컬럼에 적용 — Task.status/priority, Notification.type,
+        # RoleMenuPermission.menuKey, Channel.type, TaskActivity.field 전부 해당).
+        type:
+          preferred_enum_jdbc_type: VARCHAR
     hibernate:
       # 개발 단계 전용 — 운영 환경에서는 validate 등으로 반드시 교체할 것 (CLAUDE.md 참고)
       ddl-auto: update
