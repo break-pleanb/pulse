@@ -1,6 +1,9 @@
 package com.den.pulse.domain.project.service;
 
 import com.den.pulse.core.exception.NotFoundException;
+import com.den.pulse.domain.channel.entity.Channel;
+import com.den.pulse.domain.channel.entity.ChannelMember;
+import com.den.pulse.domain.channel.entity.ChannelType;
 import com.den.pulse.domain.member.entity.ProjectMember;
 import com.den.pulse.domain.member.entity.ProjectRole;
 import com.den.pulse.domain.member.repository.ProjectMemberIdsView;
@@ -36,6 +39,9 @@ import java.util.stream.Collectors;
 public class ProjectService {
 
     private static final String FOLDER_NOT_FOUND_MESSAGE = "폴더를 찾을 수 없습니다.";
+
+    /** 프로젝트 생성 시 자동으로 함께 만드는 기본 그룹 채널 이름 (API-SPEC.md 2장, 8단계에서 추가). */
+    private static final String DEFAULT_CHANNEL_NAME = "일반";
 
     /** 프로젝트 생성 시 순환 할당하는 마크 색상 팔레트 (API-SPEC.md 2장 "팔레트에서 순환 할당"). */
     private static final List<String> COLOR_PALETTE = List.of(
@@ -79,6 +85,10 @@ public class ProjectService {
 
         ProjectRole adminRole = projectRoleService.createDefaultRoles(project);
         entityManager.persist(new ProjectMember(project, user, adminRole, LocalDate.now()));
+
+        Channel defaultChannel = new Channel(project, DEFAULT_CHANNEL_NAME, ChannelType.GROUP);
+        entityManager.persist(defaultChannel);
+        entityManager.persist(new ChannelMember(defaultChannel, user));
 
         if (folder != null) {
             entityManager.persist(new ProjectPlacement(user, project, folder));

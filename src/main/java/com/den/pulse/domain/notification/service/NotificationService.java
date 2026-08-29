@@ -11,6 +11,7 @@ import com.den.pulse.domain.task.entity.Task;
 import com.den.pulse.domain.user.entity.User;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +20,8 @@ import java.util.UUID;
 
 /**
  * 알림 생성(API-SPEC.md 7장 트리거 테이블)과 조회·읽음 처리 API(7단계). 다른 도메인(업무·댓글·멤버 등)에서
- * 트리거되는 알림도 이 서비스의 notify()로 생성한다.
+ * 트리거되는 알림도 이 서비스의 notify()로 생성한다. 생성과 동시에 STOMP /user/queue/notifications로도
+ * 실시간 푸시한다 (DEN-DESIGN.md 6.2절 "개인 알림 실시간", 8단계에서 배선).
  */
 @Service
 @RequiredArgsConstructor
@@ -30,10 +32,14 @@ public class NotificationService {
 
     private final EntityManager entityManager;
     private final NotificationRepository notificationRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public void notify(User user, NotificationType type, String title, String body,
                         Project project, Task linkTask, Channel linkChannel) {
-        entityManager.persist(new Notification(user, type, title, body, project, linkTask, linkChannel));
+        Notification notification = new Notification(user, type, title, body, project, linkTask, linkChannel);
+        entityManager.persist(notification);
+        messagingTemplate.convertAndSendToUser(
+                user.getId().toString(), "/queue/notifications", NotificationResponse.from(notification));
     }
 
     public List<NotificationResponse> getNotifications(UUID userId) {

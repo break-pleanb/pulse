@@ -34,6 +34,10 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/api/auth/refresh").permitAll()
+                        // WS 핸드셰이크는 Authorization 헤더를 못 실어 쿼리파라미터 token으로 인증한다
+                        // (WsHandshakeInterceptor가 검증). 여기서 permitAll이라 인증 없이도 요청은
+                        // 들어오지만, 토큰이 없거나 무효하면 핸드셰이크 자체가 거부된다.
+                        .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(eh -> eh
