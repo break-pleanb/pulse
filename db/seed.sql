@@ -27,3 +27,45 @@ VALUES (
     now()
 )
 ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (id, email, password_hash, name, initials, avatar_gradient, title, created_at, updated_at)
+VALUES (
+    '1fb8dc26-cc9e-4b7a-b21a-06d716fc6dc0',
+    'yj.shin@pleanb.com',
+    '$2a$10$eWA9XqMRu9mCr5ko/66Kv.D4kIA0HKcXHeK4FcmtGQLBIuHJncMDO', -- test1234
+    '신유진',
+    'YJ',
+    'linear-gradient(135deg,#f59e0b,#fbbf24)',
+    NULL,
+    now(),
+    now()
+)
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (id, email, password_hash, name, initials, avatar_gradient, title, created_at, updated_at)
+VALUES (
+    'bc91929c-e394-4afc-896b-a4edd8b7eab4',
+    'ms.kim@pleanb.com',
+    '$2a$10$aLW6prMyNAchdxRLX0x4..7SFmBBYcCNI6okzJWtbgRtZG61hJc6y', -- test1234
+    '김민석',
+    'MS',
+    'linear-gradient(135deg,#10b981,#34d399)',
+    NULL,
+    now(),
+    now()
+)
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (id, email, password_hash, name, initials, avatar_gradient, title, created_at, updated_at)
+VALUES (
+    '634fc2cb-7534-4c4a-a993-7e206a076f45',
+    'sr.han@pleanb.com',
+    '$2a$10$yqGkQB.gk4sjSe0pcyLTouUyDEraF2HbxWTJqNx6Iei2SACZOwG5.', -- test1234
+    '한소라',
+    'SR',
+    'linear-gradient(135deg,#ec4899,#f472b6)',
+    NULL,
+    now(),
+    now()
+)
+ON CONFLICT (email) DO NOTHING;

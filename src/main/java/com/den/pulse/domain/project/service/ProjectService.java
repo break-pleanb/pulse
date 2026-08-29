@@ -1,12 +1,12 @@
 package com.den.pulse.domain.project.service;
 
 import com.den.pulse.core.exception.NotFoundException;
-import com.den.pulse.domain.member.entity.MenuKey;
 import com.den.pulse.domain.member.entity.ProjectMember;
 import com.den.pulse.domain.member.entity.ProjectRole;
-import com.den.pulse.domain.member.entity.RoleMenuPermission;
 import com.den.pulse.domain.member.repository.ProjectMemberIdsView;
 import com.den.pulse.domain.member.repository.ProjectMemberRepository;
+import com.den.pulse.domain.member.service.ProjectAccessService;
+import com.den.pulse.domain.member.service.ProjectRoleService;
 import com.den.pulse.domain.project.dto.CreateProjectRequest;
 import com.den.pulse.domain.project.dto.PlacementRequest;
 import com.den.pulse.domain.project.dto.ProjectResponse;
@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ProjectService {
 
-    private static final String PROJECT_NOT_FOUND_MESSAGE = "프로젝트를 찾을 수 없습니다.";
     private static final String FOLDER_NOT_FOUND_MESSAGE = "폴더를 찾을 수 없습니다.";
 
     /** 프로젝트 생성 시 순환 할당하는 마크 색상 팔레트 (API-SPEC.md 2장 "팔레트에서 순환 할당"). */
@@ -49,6 +48,8 @@ public class ProjectService {
     private final ProjectPlacementRepository projectPlacementRepository;
     private final FolderRepository folderRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final ProjectAccessService projectAccessService;
+    private final ProjectRoleService projectRoleService;
 
     public List<ProjectResponse> getMyProjects(UUID userId) {
         List<ProjectMember> members = projectMemberRepository.findAllByUserIdFetchProject(userId);
@@ -76,12 +77,7 @@ public class ProjectService {
         Project project = new Project(generateProjectKey(request.name()), request.name(), "", nextColor());
         entityManager.persist(project);
 
-        ProjectRole adminRole = new ProjectRole(project, "관리자", true);
-        entityManager.persist(adminRole);
-        for (MenuKey menuKey : MenuKey.values()) {
-            entityManager.persist(new RoleMenuPermission(adminRole, menuKey, true));
-        }
-
+        ProjectRole adminRole = projectRoleService.createDefaultRoles(project);
         entityManager.persist(new ProjectMember(project, user, adminRole, LocalDate.now()));
 
         if (folder != null) {
@@ -93,7 +89,7 @@ public class ProjectService {
     }
 
     public ProjectResponse getProjectByKey(UUID userId, String key) {
-        Project project = findProjectAsMember(userId, key);
+        Project project = projectAccessService.requireMember(userId, key);
         List<UUID> memberIds = groupMemberIds(List.of(project.getId())).getOrDefault(project.getId(), List.of());
         UUID folderId = groupFolderIds(userId, List.of(project.getId())).get(project.getId());
         return ProjectResponse.from(project, memberIds, folderId);
@@ -101,7 +97,7 @@ public class ProjectService {
 
     @Transactional
     public ProjectResponse updatePlacement(UUID userId, String key, PlacementRequest request) {
-        Project project = findProjectAsMember(userId, key);
+        Project project = projectAccessService.requireMember(userId, key);
         Folder folder = resolveOwnedFolder(userId, request.folderId());
 
         ProjectPlacement placement = projectPlacementRepository
@@ -117,15 +113,6 @@ public class ProjectService {
         List<UUID> memberIds = groupMemberIds(List.of(project.getId())).getOrDefault(project.getId(), List.of());
         UUID folderId = folder != null ? folder.getId() : null;
         return ProjectResponse.from(project, memberIds, folderId);
-    }
-
-    private Project findProjectAsMember(UUID userId, String key) {
-        Project project = projectRepository.findByKey(key)
-                .orElseThrow(() -> new NotFoundException(PROJECT_NOT_FOUND_MESSAGE));
-        if (!projectMemberRepository.existsByProject_IdAndUser_Id(project.getId(), userId)) {
-            throw new NotFoundException(PROJECT_NOT_FOUND_MESSAGE);
-        }
-        return project;
     }
 
     private Folder resolveOwnedFolder(UUID userId, UUID folderId) {

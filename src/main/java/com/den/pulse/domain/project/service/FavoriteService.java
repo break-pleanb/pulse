@@ -1,12 +1,10 @@
 package com.den.pulse.domain.project.service;
 
-import com.den.pulse.core.exception.NotFoundException;
-import com.den.pulse.domain.member.repository.ProjectMemberRepository;
+import com.den.pulse.domain.member.service.ProjectAccessService;
 import com.den.pulse.domain.project.dto.FavoriteToggleResponse;
 import com.den.pulse.domain.project.entity.Favorite;
 import com.den.pulse.domain.project.entity.Project;
 import com.den.pulse.domain.project.repository.FavoriteRepository;
-import com.den.pulse.domain.project.repository.ProjectRepository;
 import com.den.pulse.domain.user.entity.User;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -22,12 +20,9 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class FavoriteService {
 
-    private static final String PROJECT_NOT_FOUND_MESSAGE = "프로젝트를 찾을 수 없습니다.";
-
     private final EntityManager entityManager;
-    private final ProjectRepository projectRepository;
     private final FavoriteRepository favoriteRepository;
-    private final ProjectMemberRepository projectMemberRepository;
+    private final ProjectAccessService projectAccessService;
 
     public List<UUID> getMyFavoriteProjectIds(UUID userId) {
         return favoriteRepository.findProjectIdsByUser_Id(userId);
@@ -35,11 +30,7 @@ public class FavoriteService {
 
     @Transactional
     public FavoriteToggleResponse toggleFavorite(UUID userId, String projectKey) {
-        Project project = projectRepository.findByKey(projectKey)
-                .orElseThrow(() -> new NotFoundException(PROJECT_NOT_FOUND_MESSAGE));
-        if (!projectMemberRepository.existsByProject_IdAndUser_Id(project.getId(), userId)) {
-            throw new NotFoundException(PROJECT_NOT_FOUND_MESSAGE);
-        }
+        Project project = projectAccessService.requireMember(userId, projectKey);
 
         Optional<Favorite> existing = favoriteRepository.findByUser_IdAndProject_Id(userId, project.getId());
         if (existing.isPresent()) {

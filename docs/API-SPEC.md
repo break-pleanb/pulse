@@ -160,6 +160,12 @@ Record<projectId, Role | undefined>
 
 ## 3. 사용자 / 멤버 / 권한
 
+> **멤버·역할 관리 권한 (2026-08-29 확정)**
+> 아래 표시된 멤버 초대/역할 변경/제거, 역할 메뉴권한 수정 4개 엔드포인트는
+> **요청자가 해당 프로젝트에서 관리자 역할(`Role.isAdmin === true`)을 가진 멤버일 때만** 허용한다.
+> 관리자가 아니면(멤버이더라도) **403**. 전역(시스템 전체) 관리자 개념은 없음 — 프로젝트마다 독립적으로 판단.
+> (0.4절의 멤버 여부 체크는 선행 조건으로 그대로 적용: 아예 멤버가 아니면 404.)
+
 ### `GET /api/projects/{projectKey}/users`
 목업 함수 대응 없음 (목업의 `fetchUsers()`를 프로젝트 범위로 좁힌 엔드포인트).
 멘션 대상·담당자 후보 선택용 — 이 프로젝트 멤버만 반환한다. 댓글 멘션, 담당자 지정, 메신저 멘션 등 "이 프로젝트 안에서 사람을 고르는" 화면은 모두 이 엔드포인트를 쓴다.
@@ -216,7 +222,7 @@ Record<'tasks' | 'gantt' | 'messenger', boolean>
 
 **Response** `201` → [`ProjectMember`](#projectmember)
 
-`404` — 존재하지 않는 `userId`. `409` — 이미 해당 프로젝트 멤버.
+`404` — 존재하지 않는 `userId`. `409` — 이미 해당 프로젝트 멤버. **`403`** — 요청자가 관리자가 아님.
 
 > **목업과의 차이**: 목업 함수 `inviteProjectMember(projectKey, name, email, roleId)`는 이름·이메일을 입력받아 그 자리에서 신규 `User`를 만드는 것처럼 동작한다 → 10장 참고.
 
@@ -226,10 +232,16 @@ Record<'tasks' | 'gantt' | 'messenger', boolean>
 **Request** `{ roleId: string }`
 **Response** `204`
 
+**`403`** — 요청자가 관리자가 아님.
+**`409`** — **마지막 관리자 보호**: 대상이 그 프로젝트의 유일한 관리자 멤버인데 `roleId`가 관리자가 아닌 역할을 가리키는 경우. 관리자가 0명인 프로젝트가 생기는 것을 막는다.
+
 ### `DELETE /api/projects/{projectKey}/members/{userId}`
 목업 함수: `removeProjectMember(projectKey, userId): Promise<void>`
 
 **Response** `204`
+
+**`403`** — 요청자가 관리자가 아님.
+**`409`** — **마지막 관리자 보호**: 대상이 그 프로젝트의 유일한 관리자 멤버인 경우 제거 불가.
 
 ### `PATCH /api/roles/{roleId}/menu-permissions`
 목업 함수: `updateRoleMenuPermission(roleId, menuKey, value): Promise<void>`
@@ -239,6 +251,8 @@ Record<'tasks' | 'gantt' | 'messenger', boolean>
 { menuKey: 'tasks' | 'gantt' | 'messenger'; value: boolean }
 ```
 **Response** `204`
+
+**`403`** — 요청자가 (해당 역할이 속한 프로젝트의) 관리자가 아님.
 
 ---
 
