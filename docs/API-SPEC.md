@@ -109,6 +109,15 @@
 
 **Response** `200` → [`Project`](#project) / `404`
 
+### `DELETE /api/projects/{projectKey}`
+목업 함수 대응 없음 (2026-08-30 추가, 소프트 삭제 도입에 맞춰 신설).
+
+**Response** `204` / `404` / `403`
+
+**`403`** — 요청자가 (해당 프로젝트의) 관리자가 아님. 프로젝트 삭제는 멤버 초대/역할 변경 등 3장의 다른 관리자 전용 작업과 동일하게 **관리자만** 가능하다.
+
+**비고 (서버 side effect)**: 실제 로우 삭제가 아니라 `Project.deletedAt`을 현재 시각으로 설정하는 소프트 삭제다 (9장 "소프트 삭제" 참고). 같은 트랜잭션에서 그 프로젝트에 속한 **모든 업무(Task)도 함께 소프트 삭제**한다(cascade). 삭제 이후 이 프로젝트와 그 하위 업무는 모든 조회 API에서 존재하지 않는 것처럼(404 또는 목록에서 제외) 동작한다. 채널·댓글 등 다른 하위 리소스는 이번 범위에서 별도로 삭제 처리하지 않는다 — 부모 프로젝트 자체에 도달할 방법이 없어지므로 사실상 접근 불가능해진다.
+
 ### `GET /api/me/project-roles`
 목업 함수: `fetchMyProjectRoles(): Promise<Record<string, Role | undefined>>`
 전체 프로젝트 홈 카드의 역할 배지용 — 내가 속한 각 프로젝트에서의 내 역할.
@@ -393,6 +402,34 @@ type TaskPatch = Partial<
 
 ---
 
+> **업무 삭제·활동 이력 (2026-08-30 추가)**
+> 목업 함수 대응 없음 — 아래 두 엔드포인트는 소프트 삭제·변경 이력 기능 도입에 맞춰 신설했다.
+
+### `DELETE /api/tasks/{taskId}`
+**Response** `204` / `404`
+
+**비고**: 실제 로우 삭제가 아니라 `Task.deletedAt`을 현재 시각으로 설정하는 소프트 삭제다 (9장 "소프트 삭제" 참고). 삭제 이후 이 업무는 모든 조회 API에서 존재하지 않는 것처럼(404 또는 목록에서 제외) 동작한다. 권한은 업무 조회·수정과 동일(0.4절 — 멤버 + `isPrivate` 규칙, 별도 관리자 제한 없음). **하위 업무(subtask)도 depth 제한 없이 함께 소프트 삭제한다(cascade, 2026-08-30 확정)** — 부모만 지워지면 자식이 고아가 되고 리스트 뷰의 부모 코드 표시(`↳ APP-142`)도 깨지기 때문. 프로젝트 삭제(2장 `DELETE /api/projects/{projectKey}`)의 cascade와 동일한 취지.
+
+### `GET /api/tasks/{taskId}/activities`
+`createdAt` 오름차순 정렬해 반환. 권한은 업무 조회와 동일(0.4절).
+
+**Response** `200` → [`TaskActivity`](#taskactivity)`[]` / `404`
+
+**비고**: `PATCH /tasks/{taskId}`, `PATCH /tasks/{taskId}/status`, `PATCH /tasks/{taskId}/assignees` 세 엔드포인트가 아래 필드를 바꿀 때마다 한 줄씩 이력을 남긴다. **값이 실제로 바뀐 경우에만** 기록한다(같은 값으로 재요청하면 이력 없음).
+
+| `field` | 대상 엔드포인트 | `oldValue`/`newValue` 형식 |
+|---|---|---|
+| `status` | `PATCH /tasks/{id}/status` | `TaskStatus` 문자열 |
+| `priority` | `PATCH /tasks/{id}` | `TaskPriority` 문자열 |
+| `title` | `PATCH /tasks/{id}` | 원문 그대로 |
+| `startDate` | `PATCH /tasks/{id}` | `YYYY-MM-DD` |
+| `endDate` | `PATCH /tasks/{id}` | `YYYY-MM-DD` |
+| `progress` | `PATCH /tasks/{id}`, `PATCH /tasks/{id}/status`(`status`를 `done`으로 바꿔 `progress`가 자동으로 100이 될 때도 포함) | 숫자를 문자열로 |
+| `assignees` | `PATCH /tasks/{id}/assignees` | 콤마로 이은 `userId` 목록 (정렬됨, 빈 값이면 `""`) |
+| `isPrivate` | `PATCH /tasks/{id}` | `"true"` / `"false"` |
+
+---
+
 ## 5. 댓글
 
 ### `GET /api/tasks/{taskId}/comments`
@@ -571,7 +608,23 @@ type NotificationType =
   | 'task_status_changed'
   | 'channel_message'
   | 'project_invited'
+type ActivityField =
+  | 'status'
+  | 'priority'
+  | 'title'
+  | 'startDate'
+  | 'endDate'
+  | 'progress'
+  | 'assignees'
+  | 'isPrivate'
 ```
+
+### 소프트 삭제 (2026-08-30 추가)
+`Project`와 `Task`는 실제 DELETE 대신 서버 내부적으로 `deletedAt`(nullable)을 두는 소프트 삭제를 쓴다.
+`deletedAt`은 **내부 구현 상세이며 API 응답에 노출되지 않는다** — 위 `Project`/`Task` 타입에도 필드로 없다.
+삭제된 리소스는 모든 조회 API(목록·상세·다른 리소스를 통한 조인 포함)에서 없는 것처럼 동작한다
+(단건 조회는 404, 목록은 결과에서 제외). 구체적인 삭제 엔드포인트·권한·cascade 범위는 각각
+2장 `DELETE /api/projects/{projectKey}`, 4장 `DELETE /api/tasks/{taskId}` 참고.
 
 #### User
 ```ts
@@ -667,6 +720,19 @@ interface Comment {
   authorId: string
   body: string
   mentionUserIds: string[]
+  createdAt: string   // ISO datetime
+}
+```
+
+#### TaskActivity
+```ts
+interface TaskActivity {
+  id: string
+  taskId: string
+  field: ActivityField
+  oldValue: string   // field별 형식은 4장 GET /api/tasks/{taskId}/activities 표 참고
+  newValue: string
+  changedById: string
   createdAt: string   // ISO datetime
 }
 ```

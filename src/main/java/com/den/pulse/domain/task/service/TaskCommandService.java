@@ -14,6 +14,7 @@ import com.den.pulse.domain.task.dto.UpdateAssigneesRequest;
 import com.den.pulse.domain.task.dto.UpdateDependenciesRequest;
 import com.den.pulse.domain.task.dto.UpdateTaskRequest;
 import com.den.pulse.domain.task.dto.UpdateTaskStatusRequest;
+import com.den.pulse.domain.task.entity.ActivityField;
 import com.den.pulse.domain.task.entity.Tag;
 import com.den.pulse.domain.task.entity.Task;
 import com.den.pulse.domain.task.entity.TaskAssignee;
@@ -34,6 +35,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -56,6 +58,7 @@ public class TaskCommandService {
     private final ProjectMemberRepository projectMemberRepository;
     private final ProjectAccessService projectAccessService;
     private final TaskAccessService taskAccessService;
+    private final TaskActivityService taskActivityService;
     private final TaskResponseAssembler assembler;
     private final NotificationService notificationService;
 
@@ -117,14 +120,46 @@ public class TaskCommandService {
     @Transactional
     public TaskResponse updateStatus(UUID userId, UUID taskId, UpdateTaskStatusRequest request) {
         Task task = taskAccessService.requireVisibleTask(userId, taskId);
+        TaskStatus oldStatus = task.getStatus();
+        int oldProgress = task.getProgress();
 
+        if (oldStatus != request.status()) {
+            taskActivityService.record(task, ActivityField.STATUS, oldStatus.name(), request.status().name(), userId);
+        }
         task.setStatus(request.status());
         if (request.status() == TaskStatus.DONE) {
             task.setProgress(100);
         }
+        if (task.getProgress() != oldProgress) {
+            taskActivityService.record(task, ActivityField.PROGRESS,
+                    String.valueOf(oldProgress), String.valueOf(task.getProgress()), userId);
+        }
 
         notifyStatusChanged(userId, task);
         return assembler.toResponse(task);
+    }
+
+    /**
+     * 업무 단건 삭제. 하위 업무(subtask)를 전체 depth로 함께 소프트 삭제한다(cascade) — 부모만 사라지면
+     * 자식이 고아가 되고 리스트 뷰의 부모 코드 표시(↳ APP-142)도 깨지기 때문 (2026-08-30, 프로젝트 삭제와 동일 취지).
+     * subtask의 subtask까지 생길 수 있어(POST /tasks/{parentId}/subtasks는 임의 taskId를 부모로 받음)
+     * 한 단계씩 내려가며 반복 조회한다.
+     */
+    @Transactional
+    public void deleteTask(UUID userId, UUID taskId) {
+        Task task = taskAccessService.requireVisibleTask(userId, taskId);
+        LocalDateTime deletedAt = LocalDateTime.now();
+        task.softDelete();
+
+        List<UUID> frontier = List.of(taskId);
+        while (!frontier.isEmpty()) {
+            List<UUID> childIds = taskRepository.findIdsByParent_IdIn(frontier);
+            if (childIds.isEmpty()) {
+                break;
+            }
+            taskRepository.softDeleteAllByIdIn(childIds, deletedAt);
+            frontier = childIds;
+        }
     }
 
     @Transactional
@@ -135,9 +170,12 @@ public class TaskCommandService {
             if (request.title().isBlank()) {
                 throw new IllegalArgumentException("제목을 입력해 주세요.");
             }
+            taskActivityService.record(task, ActivityField.TITLE, task.getTitle(), request.title(), userId);
             task.setTitle(request.title());
         }
         if (request.priority() != null) {
+            taskActivityService.record(task, ActivityField.PRIORITY,
+                    task.getPriority().name(), request.priority().name(), userId);
             task.setPriority(request.priority());
         }
 
@@ -147,15 +185,23 @@ public class TaskCommandService {
             throw new IllegalArgumentException("시작일은 종료일보다 늦을 수 없습니다.");
         }
         if (request.startDate() != null) {
+            taskActivityService.record(task, ActivityField.START_DATE,
+                    task.getStartDate().toString(), request.startDate().toString(), userId);
             task.setStartDate(request.startDate());
         }
         if (request.endDate() != null) {
+            taskActivityService.record(task, ActivityField.END_DATE,
+                    task.getEndDate().toString(), request.endDate().toString(), userId);
             task.setEndDate(request.endDate());
         }
         if (request.progress() != null) {
+            taskActivityService.record(task, ActivityField.PROGRESS,
+                    String.valueOf(task.getProgress()), String.valueOf(request.progress()), userId);
             task.setProgress(request.progress());
         }
         if (request.isPrivate() != null) {
+            taskActivityService.record(task, ActivityField.IS_PRIVATE,
+                    String.valueOf(task.isPrivate()), String.valueOf(request.isPrivate()), userId);
             task.setPrivate(request.isPrivate());
         }
 
@@ -171,6 +217,8 @@ public class TaskCommandService {
         Set<UUID> currentIds = new HashSet<>(taskAssigneeRepository.findUserIdsByTask_Id(taskId));
         Set<UUID> added = new HashSet<>(newIds);
         added.removeAll(currentIds);
+
+        taskActivityService.record(task, ActivityField.ASSIGNEES, joinIds(currentIds), joinIds(newIds), userId);
 
         taskAssigneeRepository.deleteByTask_Id(taskId);
         entityManager.flush();
@@ -222,6 +270,10 @@ public class TaskCommandService {
             notificationService.notify(user, NotificationType.TASK_STATUS_CHANGED,
                     "업무 상태가 변경되었습니다", task.getTitle(), task.getProject(), task, null);
         }
+    }
+
+    private String joinIds(Set<UUID> ids) {
+        return ids.stream().map(UUID::toString).sorted().collect(Collectors.joining(","));
     }
 
     private void validateProjectMembers(UUID projectId, Set<UUID> userIds) {

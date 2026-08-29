@@ -10,6 +10,7 @@ import com.den.pulse.domain.project.service.ProjectService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,6 +45,12 @@ public class ProjectController {
     @GetMapping("/{projectKey}")
     public ProjectResponse getProject(@CurrentUser UUID userId, @PathVariable String projectKey) {
         return projectService.getProjectByKey(userId, projectKey);
+    }
+
+    @DeleteMapping("/{projectKey}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteProject(@CurrentUser UUID userId, @PathVariable String projectKey) {
+        projectService.deleteProject(userId, projectKey);
     }
 
     @PatchMapping("/{projectKey}/placement")

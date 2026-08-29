@@ -19,6 +19,7 @@ import com.den.pulse.domain.project.entity.ProjectPlacement;
 import com.den.pulse.domain.project.repository.FolderRepository;
 import com.den.pulse.domain.project.repository.ProjectPlacementRepository;
 import com.den.pulse.domain.project.repository.ProjectRepository;
+import com.den.pulse.domain.task.repository.TaskRepository;
 import com.den.pulse.domain.user.entity.User;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -56,6 +58,7 @@ public class ProjectService {
     private final ProjectMemberRepository projectMemberRepository;
     private final ProjectAccessService projectAccessService;
     private final ProjectRoleService projectRoleService;
+    private final TaskRepository taskRepository;
 
     public List<ProjectResponse> getMyProjects(UUID userId) {
         List<ProjectMember> members = projectMemberRepository.findAllByUserIdFetchProject(userId);
@@ -123,6 +126,20 @@ public class ProjectService {
         List<UUID> memberIds = groupMemberIds(List.of(project.getId())).getOrDefault(project.getId(), List.of());
         UUID folderId = folder != null ? folder.getId() : null;
         return ProjectResponse.from(project, memberIds, folderId);
+    }
+
+    /**
+     * 프로젝트 관리자만 삭제 가능 (사용자 합의, 2026-08-30). 실제 DELETE 대신 deletedAt만 설정하고,
+     * 하위 업무도 함께 소프트 삭제한다(cascade — 프로젝트 삭제 시 하위 업무까지 삭제 처리하기로 합의).
+     */
+    @Transactional
+    public void deleteProject(UUID userId, String key) {
+        ProjectMember member = projectAccessService.requireAdmin(userId, key);
+        Project project = member.getProject();
+
+        LocalDateTime deletedAt = LocalDateTime.now();
+        taskRepository.softDeleteAllByProject_Id(project.getId(), deletedAt);
+        project.softDelete();
     }
 
     private Folder resolveOwnedFolder(UUID userId, UUID folderId) {

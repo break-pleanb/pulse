@@ -2,16 +2,19 @@ package com.den.pulse.domain.task.controller;
 
 import com.den.pulse.core.security.CurrentUser;
 import com.den.pulse.domain.task.dto.CreateSubtaskRequest;
+import com.den.pulse.domain.task.dto.TaskActivityResponse;
 import com.den.pulse.domain.task.dto.TaskResponse;
 import com.den.pulse.domain.task.dto.UpdateAssigneesRequest;
 import com.den.pulse.domain.task.dto.UpdateDependenciesRequest;
 import com.den.pulse.domain.task.dto.UpdateTaskRequest;
 import com.den.pulse.domain.task.dto.UpdateTaskStatusRequest;
+import com.den.pulse.domain.task.service.TaskActivityService;
 import com.den.pulse.domain.task.service.TaskCommandService;
 import com.den.pulse.domain.task.service.TaskQueryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -30,10 +34,22 @@ public class TaskController {
 
     private final TaskQueryService taskQueryService;
     private final TaskCommandService taskCommandService;
+    private final TaskActivityService taskActivityService;
 
     @GetMapping("/{taskId}")
     public TaskResponse getTask(@CurrentUser UUID userId, @PathVariable UUID taskId) {
         return taskQueryService.getTask(userId, taskId);
+    }
+
+    @DeleteMapping("/{taskId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteTask(@CurrentUser UUID userId, @PathVariable UUID taskId) {
+        taskCommandService.deleteTask(userId, taskId);
+    }
+
+    @GetMapping("/{taskId}/activities")
+    public List<TaskActivityResponse> getActivities(@CurrentUser UUID userId, @PathVariable UUID taskId) {
+        return taskActivityService.getActivities(userId, taskId);
     }
 
     @GetMapping("/{taskId}/subtask-count")

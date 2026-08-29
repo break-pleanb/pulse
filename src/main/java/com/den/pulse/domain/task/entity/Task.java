@@ -14,14 +14,19 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * assigneeIds/watcherIds/dependencyIds/tagIds는 컬럼이 아니라 각 조인 테이블(TaskAssignee 등)에서 파생된다.
+ * deletedAt은 소프트 삭제 마커 — @SQLRestriction으로 이 엔티티가 관여하는 모든 조회(HQL·Criteria·연관관계
+ * 로딩 포함)에 자동으로 "deleted_at is null" 조건이 붙는다. 삭제된 업무는 findById 등에서 그냥 안 보인다.
  */
 @Entity
 @Table(name = "task")
+@SQLRestriction("deleted_at is null")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Task extends BaseEntity {
@@ -71,6 +76,9 @@ public class Task extends BaseEntity {
     @Column(name = "comment_count", nullable = false)
     private int commentCount;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     public Task(Project project, String code, String title, TaskStatus status, TaskPriority priority,
                 Task parent, LocalDate startDate, LocalDate endDate, int progress, boolean isPrivate) {
         this.project = project;
@@ -84,5 +92,9 @@ public class Task extends BaseEntity {
         this.progress = progress;
         this.isPrivate = isPrivate;
         this.commentCount = 0;
+    }
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
     }
 }
